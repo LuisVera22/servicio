@@ -14,6 +14,7 @@ use App\Http\Controllers\HeadquartersController;
 use App\Http\Controllers\MainWarehouseReceptionController;
 use App\Http\Controllers\MaterialsController;
 use App\Http\Controllers\ProductsController;
+use App\Http\Controllers\PettyCashController;
 use App\Http\Controllers\QuotationController;
 use App\Http\Controllers\QuotationReasonController;
 use App\Http\Controllers\ReplenishmentsController;
@@ -41,14 +42,12 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-
-/*controlador depettycash*/
-Route::resource("pettycash",PettyCashController::class);
-
-
 Route::post('auth/register', [AuthController::class, 'create']);
 Route::post('auth/login', [AuthController::class, 'login']);
 Route::middleware(['auth:sanctum'])->group(function () {
+
+    /*controlador de pettycash*/
+    Route::resource("pettycash",PettyCashController::class);
 
     Route::put('businessImage', [BusinessController::class, 'updateImage']);
     Route::resource('business', BusinessController::class);
