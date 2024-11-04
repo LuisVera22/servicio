@@ -23,12 +23,12 @@ class PettycashController
     public function index(){
         $pettycash = pettycash::select('*')->get();
 
-        $pettycash = $pettycash->map(function ($item) {
+      /* $pettycash = $pettycash->map(function ($item) {
             $item['img_petty_cash_url'] =  $item['img_petty_cash_name']
                 ? asset("storage/img_petty_cash/{$item['img_petty_cash_name']}")
                 : null;
             return $item;
-        });
+        });*/
 
         return response()->json($pettycash);
     }

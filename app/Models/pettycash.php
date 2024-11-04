@@ -11,6 +11,7 @@ class PettyCash extends Model
     protected $table = 'pettycash';
 
     protected $fillable = [
+        'id',
         'date',
         'time',
         'description',
@@ -19,9 +20,5 @@ class PettyCash extends Model
         'img_petty_cash_name',
         'created_at',
         'updated_at',
-    ];
-
-    protected $hidden = [
-        'id'
     ];
 }
