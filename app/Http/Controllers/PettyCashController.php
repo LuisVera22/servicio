@@ -20,22 +20,17 @@ class PettycashController
         $this->repository = $repository;
     }
 
-    public function index(){
+    public function index()
+    {
         $pettycash = pettycash::select('*')->get();
-
-      /* $pettycash = $pettycash->map(function ($item) {
-            $item['img_petty_cash_url'] =  $item['img_petty_cash_name']
-                ? asset("storage/img_petty_cash/{$item['img_petty_cash_name']}")
-                : null;
-            return $item;
-        });*/
 
         return response()->json($pettycash);
     }
 
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         /*Definición de reglas de validación*/
-        $rules = [     
+        $rules = [
             'description' => 'required|string',
             'amount' => 'required|numeric',
             'username' => 'required|string',
@@ -53,36 +48,32 @@ class PettycashController
         ];
 
         try {
-            /*Verificación de la base de datos*/
-            if($this->isDatabaseDow()){
-                if($this->isAppDownForMaintenance()) {
+            if ($this->isDatabaseDown()) {
+                if ($this->isAppDownForMaintenance()) {
                     return response()->json([
                         'status' => false,
                         'errors' => ['mantenimiento.'],
                         'message' => 'La aplicación está en mantenimiento. Inténtalo de nuevo más tarde.'
-                    ],503);
+                    ], 503);
                 } else {
-                    /*Validación de la solicitud*/
                     $validator = Validator::make($request->input(),$rules,$messages);
-                    if($validator->fails()) {
+                    if($validator->fails()){
                         return response()->json([
-                            'status' => false,
-                            'alert' => 'rules',
-                            'errors' => $validator->errors()->all()
+                            'status'    => false,
+                            'alert'     => 'rules',
+                            'errors'    => $validator->errors()->all()
                         ], 400);
                     } else {
-                       /*Intentar la transacción*/
-                        try {   
-        
+                        try {
+
                             DB::beginTransaction();
-                            
-                            /*Obtener los datos de imagen*/
+
                             $img_petty_cash_name = $request->input('img_petty_cash_name');
                             $img_petty_cash = $request->input('img_petty_cash');
 
                             $img_petty_cash_file = base64_decode($img_petty_cash);
 
-                            Storage::disk('public')->put('img_petty_cash/'.$img_petty_cash_name, $img_petty_cash_file);
+                            Storage::disk('public')->put('img_petty_cash/' . $img_petty_cash_name, $img_petty_cash_file);
 
                             $pettycash = new PettyCash([
                                 'description' => $request->input('description'),
@@ -90,31 +81,29 @@ class PettycashController
                                 'username'    => $request->input('username'),
                                 'img_petty_cash_name'      => $img_petty_cash_name
                             ]);
-                            
+
                             $pettycash->save();
 
-                            /*Confirmación de la transacción */
                             DB::commit();
 
                             return response()->json([
-                                'satus' => true,
+                                'status' => true,
                                 'message' => 'Registro Generado.'
-                            ],200);
+                            ], 200);
+                        } catch (\Exception $e) {
 
-                        } catch (\Exception $e){
-                            /*Revertir la transación en caso de error */
                             DB::rollBack();
 
                             return response()->json([
                                 'status' => false,
                                 'errors' => ['Error al crear el registro.'],
                                 'message' => 'Error: ' . $e->getMessage()
-                            ],500);
+                            ], 500);
                         }
                     }
                 }
             }
-        } catch (\Exception $e){
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
                 'errors' => ['No se pudo conectar a la base de datos'],
@@ -123,141 +112,111 @@ class PettycashController
         }
     }
 
-    public function show(PettyCash $pettycash){
-        return response()->json(['status'=>true,'data'=>$pettycash]);
+    public function show(PettyCash $pettycash)
+    {
+        if ($pettycash->img_petty_cash_name) {
+            $pettycash->img_petty_cash_url = asset("storage/img_petty_cash/{$pettycash->img_petty_cash_name}");
+        }
+
+        return response()->json([
+            'status' => true,
+            'data'   => $pettycash
+        ]);
     }
 
-    public function update(Request $request, $id){
-        $rules = [     
-            'description' => 'nullable|string',
-            'amount' => 'nullable|numeric',
-            'img_petty_cash_name' => 'nullable|string',
+    public function update(Request $request, PettyCash $pettycash)
+    {
+        // Validación de las entradas
+        $rules = [
+            'description' => 'required|string',
+            'amount' => 'required|numeric',
+            'img_petty_cash_name' => 'required|string',
             'img_petty_cash' => 'nullable'
         ];
+
         $messages = [
             'description.string' => 'El campo descripción debe ser una cadena de texto',
             'amount.numeric' => 'El campo monto debe ser un número',
-            'img_petty_cash_name.string' => 'El nombre de la imgen debe ser una cadena'
+            'img_petty_cash_name.string' => 'El nombre de la imagen debe ser una cadena'
         ];
 
         try {
-            if($this->isDatabaseDow()){
-                if($this->isAppDownForMaintenance()) {
+            if ($this->isDatabaseDown()) {
+                if ($this->isAppDownForMaintenance()) {
                     return response()->json([
                         'status' => false,
                         'errors' => ['mantenimiento.'],
                         'message' => 'La aplicación está en mantenimiento. Inténtalo de nuevo más tarde.'
-                    ],503);
-                } else {
-                        $validator = Validator::make($request->all(), $rules, $messages);
-                        if($validator->fails()){
-                            return response()->json([
-                                'status' => false,
-                                'alert' => 'rules',
-                                'errors' => $validator->errors()->all()
-                            ],400);
-                        } else{
-                            try {
-                                /*Buscar el registro por el id*/
-                                $pettycash = PettyCash::find($id);
-
-                                if(!$pettycash){
-                                    return response()->json([
-                                        'status'=>false,
-                                        'errors'=>['Registro no encontrado']
-                                    ],404);
-                                } else{
-                                    try{
-                                        DB::beginTransaction();
-
-                                        /*Actualizar solo los campos enviados*/
-                                        if ($request->has('description')) {
-                                            $pettycash->description = $request->input('description');
-                                        }
-                                        if ($request->has('amount')) {
-                                            $pettycash->amount = $request->input('amount');
-                                        }
-                                        if ($request->has('img_petty_cash') && !empty($request->input('img_petty_cash'))){
-                                            /*Obtener el contenido de la imagen*/
-                                            $img_petty_cash = $request->input('img_petty_cash');
-                                            $img_petty_cash_name = $request->input('img_petty_cash_name');
-
-                                            /*Convertir el contenido base64 a datos binarios*/
-                                            $img_petty_cash_file = base64_decode($img_petty_cash);
-
-                                            /*Guardar la imagen en archivos*/
-                                            Storage::disk('public')->put('img_petty_cash/'.$img_petty_cash_name, $img_petty_cash_file);
-
-                                            /*Actualizar el nombre de la imagen*/
-                                            $pettycash->img_petty_cash_name = $img_petty_cash_name;
-                                        }
-                                    
-                                        $pettycash->save();
-
-                                        DB::commit();
-                                    
-                                        return response()->json([
-                                            'status' => true,
-                                            'message' => 'Actualización exitosa.'
-                                        ]);
-                                    } catch (\Exception $e){
-                                        DB::rollBack();
-                                        return response()->json([
-                                            'status' => false,
-                                            'errors' => ['Error al intentar actualizar el registro'],
-                                            'message' => 'Error: ' . $e->getMessage()
-                                        ],400);
-                                    }
-                                }
-                            } catch(\Exception $e){
-
-                            }
-                        }
-                }
-            }
-        } catch (\Exception $e){
-            return response()->json([
-                'status' => false,
-                'errors' => ['No se pudo conectar a la base de datos'],
-                'message' => 'Error: ' .  $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function destroy($id){
-        try {
-            if ($this-> isDatabaseDow()){
-                if($this->isAppDownForMaintenance()) {
-                    return response()->json([
-                        'status' => false,
-                        'errors' => ['mantenimiento.'],
-                        'message' => 'La aplicación esta en mantenimiento. Inténtalo de nuevo más tarde.'
                     ], 503);
                 } else {
+                    $validator = Validator::make($request->all(), $rules, $messages);
+                    if ($validator->fails()) {
+                        return response()->json([
+                            'status' => false,
+                            'alert' => 'rules',
+                            'errors' => $validator->errors()->all()
+                        ], 400);
+                    } else {
+                        try {
+                            
+                            // Aquí estamos buscando el registro usando el id que debe estar presente en el modelo
+                            // Asegúrate que el modelo contiene el id
+                            $pettycashFound = PettyCash::find($pettycash->id); // Buscar el registro con el id
 
-                     // Verificar si el registro existe
-                $exists = PettyCash::where('id', $id)->exists();
-                if (!$exists) {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'No se encontró el registro para eliminar.'
-                    ], 404);
-                }
 
-                // Intentar eliminar el registro
-                $deleted = PettyCash::where('id', $id)->delete();
+                            try {
+                                DB::beginTransaction();
+                                
+                                $pettycashFound->description = $request->input('description');
+                                $pettycashFound->amount = $request->input('amount');
 
-                if ($deleted > 0) {
-                    return response()->json([
-                        'status' => true,
-                        'message' => 'Registro eliminado exitosamente.'
-                    ], 200);
-                } else {
-                    return response()->json([
-                        'status' => false,
-                        'message' => 'Error inesperado al eliminar el registro.'
-                    ], 500);
-                }
+                                // Verificar si se ha proporcionado una nueva imagen
+                                if (!empty($request['img_petty_cash'])) {
+                                    $imgpettycash = $request->input('img_petty_cash');
+                                    $imgpettycashname = $request->input('img_petty_cash_name');
+                            
+                                    // Verificar si el nombre de la nueva imagen es diferente de la actual y eliminar la antigua
+                                    if ($pettycashFound->img_petty_cash_name && $pettycashFound->img_petty_cash_name !== $imgpettycashname) {
+                                        // Eliminar la imagen anterior de la carpeta de almacenamiento
+                                        Storage::disk('public')->delete('img_petty_cash/' . $pettycashFound->img_petty_cash_name);
+                                        
+                                    }
+
+                                    // Convertir el contenido base64 a datos binarios
+                                    $img_petty_cash_file = base64_decode($imgpettycash);
+
+                                    // Guardar la nueva imagen en archivos
+                                    Storage::disk('public')->put('img_petty_cash/' . $imgpettycashname, $img_petty_cash_file);
+
+                                    // Actualizar el nombre de la imagen en el modelo
+                                    $pettycashFound->img_petty_cash_name = $imgpettycashname;
+                                }
+
+                                // Guardar los cambios
+                                $pettycashFound->save();
+
+                                DB::commit();
+
+                                return response()->json([
+                                    'status' => true,
+                                    'message' => 'Actualización exitosa.'
+                                ]);
+                            } catch (\Exception $e) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'status' => false,
+                                    'errors' => ['Error al intentar actualizar el registro'],
+                                    'message' => 'Error: ' . $e->getMessage()
+                                ], 400);
+                            }
+                        } catch (\Exception $e) {
+                            return response()->json([
+                                'status' => false,
+                                'errors' => ['Error inesperado'],
+                                'message' => 'Error: ' . $e->getMessage()
+                            ], 500);
+                        }
+                    }
                 }
             }
         } catch (\Exception $e) {
@@ -269,15 +228,82 @@ class PettycashController
         }
     }
 
-    private function isAppDownForMaintenance(){
+
+
+    public function destroy($id)
+    {
+        try {
+            if ($this->isDatabaseDown()) {
+                if ($this->isAppDownForMaintenance()) {
+                    return response()->json([
+                        'status' => false,
+                        'errors' => ['mantenimiento.'],
+                        'message' => 'La aplicación está en mantenimiento. Inténtalo de nuevo más tarde.'
+                    ], 503);
+                } else {
+                    // Verificar si el registro existe
+                    $record = PettyCash::find($id);
+                    if (!$record) {
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'No se encontró el registro para eliminar.'
+                        ], 404);
+                    }
+
+                    // Guardar el nombre del archivo antes de eliminar el registro
+                    $fileName = $record->img_petty_cash_name; // Asumimos que esta es la columna que contiene el nombre del archivo
+
+                    // Intentar eliminar el archivo
+                    if ($fileName) {
+                        $filePath = storage_path('app/public/img_petty_cash/' . $fileName);
+
+                        // Verificar si el archivo existe antes de eliminarlo
+                        if (file_exists($filePath)) {
+                            unlink($filePath); // Eliminar archivo
+                        } else {
+                            return response()->json([
+                                'status' => false,
+                                'message' => 'Archivo no encontrado en el sistema.'
+                            ], 404);
+                        }
+                    }
+
+                    // Intentar eliminar el registro
+                    $deleted = $record->delete(); // Eliminar el registro de la base de datos
+
+                    if ($deleted) {
+                        return response()->json([
+                            'status' => true,
+                            'message' => 'Registro eliminado exitosamente.'
+                        ], 200);
+                    } else {
+                        return response()->json([
+                            'status' => false,
+                            'message' => 'Error inesperado al eliminar el registro.'
+                        ], 500);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => ['No se pudo conectar a la base de datos'],
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function isAppDownForMaintenance()
+    {
         return app()->isDownForMaintenance();
     }
 
-    private function isDatabaseDow(){
-        try{
+    private function isDatabaseDown()
+    {
+        try {
             DB::select('SELECT 1');
             return true;
-        } catch(\Exception $e){
+        } catch (\Exception $e) {
             return $e;
         }
     }

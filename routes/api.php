@@ -46,7 +46,6 @@ Route::post('auth/register', [AuthController::class, 'create']);
 Route::post('auth/login', [AuthController::class, 'login']);
 Route::middleware(['auth:sanctum'])->group(function () {
 
-    /*controlador de pettycash*/
     Route::resource("pettycash",PettyCashController::class);
 
     Route::put('businessImage', [BusinessController::class, 'updateImage']);
